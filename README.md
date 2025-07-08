@@ -1,8 +1,8 @@
 # XDEV - Web Inspector
 
-A modern Chrome extension that provides detailed styling information for web elements with a beautiful, intuitive interface.
+A modern Web extension that provides detailed styling information for web elements with a beautiful, intuitive interface.
 
-![XDEV Inspector Preview](icon.png)
+![image](https://github.com/user-attachments/assets/45dc8986-cbf2-4fcd-8366-b22ca022f530)
 
 ## Features
 
