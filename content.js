@@ -23,32 +23,52 @@ const icons = {
   spacing: 'https://img.icons8.com/ios-glyphs/100/add-white-space.png',
   padding: 'https://img.icons8.com/ios-filled/100/resize-four-directions.png',
   margin: 'https://img.icons8.com/ios-filled/100/move.png',
-  layout: 'https://img.icons8.com/ios-filled/100/grid.png',
-  border: 'https://img.icons8.com/ios-filled/100/rectangle.png'
+  layout: 'https://img.icons8.com/fluency-systems-regular/100/channel-mosaic.png',
+  border: 'https://img.icons8.com/ios-filled/100/ios-application-placeholder.png',
+  shadow: 'https://img.icons8.com/metro/26/last-quarter.png',
+  background: 'https://img.icons8.com/ios-filled/100/opacity.png'
 };
 
 document.body.appendChild(tooltip);
 
-// Convert RGB/RGBA color to Hex
+// Function to convert color to hex
 const colorToHex = (color) => {
-  // Create a temporary div to compute the color
+  // If already hex, return as is
+  if (color.startsWith('#')) return color;
+
+  // Add back rgba structure if it was stripped
+  let processedColor = color;
+  if (color.startsWith('rgb')) {
+    const parts = color.replace(/rgb[a]?\s*/, '').split(' ');
+    processedColor = `rgba(${parts.join(', ')})`;
+  }
+
+  // Create a temporary div to use the browser's color parsing
   const div = document.createElement('div');
-  div.style.color = color;
+  div.style.color = processedColor;
   document.body.appendChild(div);
-  const computed = getComputedStyle(div).color;
+  
+  // Get the computed color value
+  const computedColor = window.getComputedStyle(div).color;
   document.body.removeChild(div);
-  
-  // Extract RGB values
-  const match = computed.match(/^rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
-  if (!match) return color; // Return original if conversion fails
-  
+
+  // Parse RGB/RGBA values
+  const values = computedColor.match(/\d+/g).map(Number);
+  const [r, g, b, a] = values;
+
   // Convert to hex
-  const hex = '#' + match.slice(1).map(n => {
-    const hex = parseInt(n).toString(16);
+  const toHex = (n) => {
+    const hex = Math.round(n).toString(16);
     return hex.length === 1 ? '0' + hex : hex;
-  }).join('');
-  
-  return hex.toUpperCase();
+  };
+
+  // If alpha is present and not 1, include it in the hex
+  if (typeof a !== 'undefined' && a !== 1) {
+    const alpha = Math.round(a * 255);
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}${toHex(alpha)}`;
+  }
+
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 };
 
 // Function to format spacing values
@@ -101,15 +121,83 @@ const parseBorder = (borderStr) => {
 
 // Function to parse box shadow
 const parseBoxShadow = (shadowStr) => {
-  if (shadowStr === 'none') return null;
-  const parts = shadowStr.split(' ');
+  if (!shadowStr || shadowStr === 'none') return null;
+
+  // Split the shadow string into parts and clean up
+  const parts = shadowStr.replace(/,|\(|\)/g, '').split(' ').filter(part => part);
+  
+  // Extract color (it can be at the start or end)
+  let color = parts.find(part => part.startsWith('rgb') || part.startsWith('#') || part.startsWith('hsl'));
+  if (!color) color = 'rgba(0, 0, 0, 0.2)'; // default shadow color
+  
+  // Remove color from parts to process numeric values
+  const values = parts.filter(part => part !== color);
+  
   return {
-    offsetX: parts[0] || '0px',
-    offsetY: parts[1] || '0px',
-    blur: parts[2] || '0px',
-    spread: parts[3] || '0px',
-    color: parts.slice(4).join(' ') || 'transparent'
+    offsetX: values[0] || '0px',
+    offsetY: values[1] || '0px',
+    blurRadius: values[2] || '0px',
+    spreadRadius: values[3] || '0px',
+    color: color.replace(/,|\(|\)/g, '')
   };
+};
+
+// Function to format shadow details
+const formatShadowDetails = (shadow) => {
+  if (!shadow) return '';
+
+  const shadowColorHex = colorToHex(shadow.color);
+
+  return `
+    <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; margin-left: 4px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: rgba(255,255,255,0.7); min-width: 60px;">Offset</span>
+        <span>${shadow.offsetX} ${shadow.offsetY}</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: rgba(255,255,255,0.7); min-width: 60px;">Blur</span>
+        <span>${shadow.blurRadius}</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: rgba(255,255,255,0.7); min-width: 60px;">Spread</span>
+        <span>${shadow.spreadRadius}</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: rgba(255,255,255,0.7); min-width: 60px;">Color</span>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="display: inline-block; width: 12px; height: 12px; background: ${shadow.color}; border-radius: 2px; border: 1px solid rgba(255,255,255,0.2);"></span>
+          <span>${shadowColorHex}</span>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+// Function to format border details
+const formatBorderDetails = (border, borderRadius) => {
+  if (!border) return '';
+
+  return `
+    <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; margin-left: 4px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: rgba(255,255,255,0.7); min-width: 60px;">Width</span>
+        <span>${border.width} ${border.style}</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: rgba(255,255,255,0.7); min-width: 60px;">Color</span>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="display: inline-block; width: 12px; height: 12px; background: ${border.color}; border-radius: 2px; border: 1px solid rgba(255,255,255,0.2);"></span>
+          <span>${colorToHex(border.color)}</span>
+        </div>
+      </div>
+      ${borderRadius !== '0px' ? `
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="color: rgba(255,255,255,0.7); min-width: 60px;">Radius</span>
+          <span>${borderRadius}</span>
+        </div>
+      ` : ''}
+    </div>
+  `;
 };
 
 // Function to generate combined tooltip content
@@ -119,7 +207,7 @@ const getElementTooltipContent = (el, style) => {
   
   // Get text properties
   const textContent = hasText ? `
-    <div style="margin-bottom: 12px;">
+    <div style="margin-bottom: ${isContainer ? '16px' : '0'};">
       <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
         <img src="${icons.font}" width="16" height="16" style="filter: invert(1);">
         <span style="font-size: 15px; font-weight: 500;">${style.fontFamily}</span>
@@ -142,6 +230,7 @@ const getElementTooltipContent = (el, style) => {
           <span>${colorToHex(style.color)}</span>
         </div>
       </div>
+      ${isContainer ? '<div style="height: 1px; background: rgba(255,255,255,0.1); margin: 16px 0;"></div>' : ''}
     </div>
   ` : '';
 
@@ -191,27 +280,32 @@ const getElementTooltipContent = (el, style) => {
 
     containerContent = `
       <div style="color: rgba(255,255,255,0.9);">
-          <div style="margin-bottom: 8px;">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <img src="${icons.padding}" width="12" height="12" style="filter: invert(1);">
-              <span>Padding: ${padding}</span>
-            </div>
+        <div style="margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <img src="${icons.padding}" width="12" height="12" style="filter: invert(1);">
+            <span>Padding: ${padding}</span>
           </div>
-          <div style="margin-bottom: 8px;">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <img src="${icons.margin}" width="12" height="12" style="filter: invert(1);">
-              <span>Margin: ${margin}</span>
-            </div>
+          <div style="display: flex; align-items: center; gap: 6px; margin-top: 8px;">
+            <img src="${icons.margin}" width="12" height="12" style="filter: invert(1);">
+            <span>Margin: ${margin}</span>
           </div>
+        </div>
         ${(isGrid || isFlex) ? `
-          <div style="margin-bottom: 8px;">
-            <div style="font-size: 14px; font-weight: 700; margin-bottom: 4px;">Layout: ${display}</div>
+          <div style="margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <img src="${icons.layout}" width="16" height="16" style="filter: invert(1);">
+              <div style="font-size: 14px; font-weight: 600;">Layout: ${display}</div>
+            </div>
             ${layoutDetails.map(detail => `<div style="font-family: monospace; font-size: 12px;">${detail}</div>`).join('')}
           </div>
+          <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 16px 0;"></div>
         ` : ''}
         ${backgroundColor !== 'rgba(0, 0, 0, 0)' || backgroundImage !== 'none' ? `
-          <div style="margin-bottom: 8px;">
-            <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">Background</div>
+          <div style="margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <img src="${icons.background}" width="16" height="16" style="filter: invert(1);">
+              <div style="font-size: 14px; font-weight: 600;">Background</div>
+            </div>
             ${backgroundColor !== 'rgba(0, 0, 0, 0)' ? `
               <div style="display: flex; align-items: center; gap: 6px;">
                 <span style="display: inline-block; width: 12px; height: 12px; background: ${backgroundColor}; border-radius: 2px;"></span>
@@ -222,34 +316,25 @@ const getElementTooltipContent = (el, style) => {
               <div style="font-family: monospace; font-size: 12px;">${backgroundImage}</div>
             ` : ''}
           </div>
+          <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 16px 0;"></div>
         ` : ''}
         ${border ? `
-          <div style="margin-bottom: 8px;">
-            <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">Border</div>
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <div>Width: ${border.width} ${border.style}</div>
-              <div style="display: flex; align-items: center; gap: 6px;">
-                Color: 
-                <span style="display: inline-block; width: 12px; height: 12px; background: ${border.color}; border-radius: 2px;"></span>
-                <span>${colorToHex(border.color)}</span>
-              </div>
-              ${style.borderRadius !== '0px' ? `<div>Border Radius: ${style.borderRadius}</div>` : ''}
+          <div style="margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <img src="${icons.border}" width="16" height="16" style="filter: invert(1);">
+              <div style="font-size: 14px; font-weight: 600;">Border</div>
             </div>
+            ${formatBorderDetails(border, style.borderRadius)}
           </div>
+          <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 16px 0;"></div>
         ` : ''}
         ${shadow ? `
-          <div style="margin-bottom: 8px;">
-            <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">Shadow</div>
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <div>Offset: ${shadow.offsetX} ${shadow.offsetY}</div>
-              <div>Blur: ${shadow.blur}</div>
-              ${shadow.spread !== '0px' ? `<div>Spread: ${shadow.spread}</div>` : ''}
-              <div style="display: flex; align-items: center; gap: 6px;">
-                Color: 
-                <span style="display: inline-block; width: 12px; height: 12px; background: ${shadow.color}; border-radius: 2px;"></span>
-                <span>${colorToHex(shadow.color)}</span>
-              </div>
+          <div style="margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <img src="${icons.shadow}" width="16" height="16" style="filter: invert(1);">
+              <div style="font-size: 14px; font-weight: 600;">Shadow</div>
             </div>
+            ${formatShadowDetails(shadow)}
           </div>
         ` : ''}
       </div>
