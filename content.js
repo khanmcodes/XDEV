@@ -36,25 +36,14 @@ const colorToHex = (color) => {
   // If already hex, return as is
   if (color.startsWith('#')) return color;
 
-  // Add back rgba structure if it was stripped
-  let processedColor = color;
-  if (color.startsWith('rgb')) {
-    const parts = color.replace(/rgb[a]?\s*/, '').split(' ');
-    processedColor = `rgba(${parts.join(', ')})`;
-  }
-
-  // Create a temporary div to use the browser's color parsing
-  const div = document.createElement('div');
-  div.style.color = processedColor;
-  document.body.appendChild(div);
+  // Create a canvas to convert colors
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
   
-  // Get the computed color value
-  const computedColor = window.getComputedStyle(div).color;
-  document.body.removeChild(div);
-
-  // Parse RGB/RGBA values
-  const values = computedColor.match(/\d+/g).map(Number);
-  const [r, g, b, a] = values;
+  // Draw with the color and get the pixel data
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, 1, 1);
+  const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
 
   // Convert to hex
   const toHex = (n) => {
@@ -62,10 +51,9 @@ const colorToHex = (color) => {
     return hex.length === 1 ? '0' + hex : hex;
   };
 
-  // If alpha is present and not 1, include it in the hex
-  if (typeof a !== 'undefined' && a !== 1) {
-    const alpha = Math.round(a * 255);
-    return `#${toHex(r)}${toHex(g)}${toHex(b)}${toHex(alpha)}`;
+  // If alpha is not 1, include it
+  if (a !== 255) {
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}${toHex(a)}`;
   }
 
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
@@ -123,22 +111,27 @@ const parseBorder = (borderStr) => {
 const parseBoxShadow = (shadowStr) => {
   if (!shadowStr || shadowStr === 'none') return null;
 
-  // Split the shadow string into parts and clean up
-  const parts = shadowStr.replace(/,|\(|\)/g, '').split(' ').filter(part => part);
+  // Simple split by spaces, keeping rgba values intact
+  const parts = shadowStr.match(/rgba?\([^)]+\)|[^\s]+/g) || [];
   
-  // Extract color (it can be at the start or end)
-  let color = parts.find(part => part.startsWith('rgb') || part.startsWith('#') || part.startsWith('hsl'));
-  if (!color) color = 'rgba(0, 0, 0, 0.2)'; // default shadow color
+  // Find the color (could be at start or end)
+  const colorIndex = parts.findIndex(part => 
+    part.startsWith('#') || 
+    part.startsWith('rgb') || 
+    part.startsWith('rgba') || 
+    (part.match(/^[a-z]+$/) && CSS.supports('color', part))
+  );
+
+  // Get the color and remove it from parts
+  const color = colorIndex !== -1 ? parts.splice(colorIndex, 1)[0] : 'rgba(0, 0, 0, 0.1)';
   
-  // Remove color from parts to process numeric values
-  const values = parts.filter(part => part !== color);
-  
+  // Remaining parts should be numbers with units
   return {
-    offsetX: values[0] || '0px',
-    offsetY: values[1] || '0px',
-    blurRadius: values[2] || '0px',
-    spreadRadius: values[3] || '0px',
-    color: color.replace(/,|\(|\)/g, '')
+    offsetX: parts[0] || '0px',
+    offsetY: parts[1] || '0px',
+    blurRadius: parts[2] || '0px',
+    spreadRadius: parts[3] || '0px',
+    color: color
   };
 };
 
@@ -328,7 +321,7 @@ const getElementTooltipContent = (el, style) => {
           </div>
           <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 16px 0;"></div>
         ` : ''}
-        ${shadow ? `
+        ${style.boxShadow && style.boxShadow !== 'none' ? `
           <div style="margin-bottom: 16px;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
               <img src="${icons.shadow}" width="16" height="16" style="filter: invert(1);">
@@ -344,8 +337,20 @@ const getElementTooltipContent = (el, style) => {
   return textContent + containerContent;
 };
 
+// Initialize state
+let isInspectorEnabled = true;
+
+// Listen for messages from popup
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'toggleInspector') {
+    isInspectorEnabled = message.isEnabled;
+  }
+});
+
 // Track mouse and update tooltip
 document.addEventListener('mousemove', (e) => {
+  if (!isInspectorEnabled) return;
+  
   const el = document.elementFromPoint(e.clientX, e.clientY);
   
   // Clear any existing timeout
@@ -411,6 +416,11 @@ document.addEventListener('mousemove', (e) => {
 
 // Hide tooltip when mouse leaves text
 document.addEventListener('mouseout', (e) => {
+  if (!isInspectorEnabled) return;
+  
+  const target = e.target;
+  if (target === tooltip) return;
+
   if (tooltipTimeout) {
     clearTimeout(tooltipTimeout);
   }
@@ -419,4 +429,9 @@ document.addEventListener('mouseout', (e) => {
     removeHighlight(lastHighlightedElement);
     lastHighlightedElement = null;
   }
+});
+
+// Load initial state
+chrome.storage.sync.get(['inspectorEnabled'], (result) => {
+  isInspectorEnabled = result.inspectorEnabled !== false; // Default to true if not set
 });

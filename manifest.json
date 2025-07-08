@@ -1,15 +1,27 @@
 {
     "manifest_version": 3,
-    "name": "XDEV",
+    "name": "XDEV - Web Inspector",
     "version": "1.0",
-    "description": "Inspect font and style info on hover.",
-    "permissions": ["scripting", "activeTab"],
+    "description": "A modern element inspector that shows detailed styling information",
+    "author": "Khanm",
+    "homepage_url": "https://github.com/khanmcodes/XDEV",
+    "icons": {
+      "48": "icon.png",
+      "128": "icon.png"
+    },
     "action": {
       "default_popup": "popup.html",
       "default_icon": "icon.png"
     },
-    "icons": {
-      "128": "icon.png"
-    }
+    "permissions": [
+      "activeTab",
+      "storage"
+    ],
+    "content_scripts": [
+      {
+        "matches": ["<all_urls>"],
+        "js": ["content.js"]
+      }
+    ]
   }
   
