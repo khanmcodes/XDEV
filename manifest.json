@@ -6,12 +6,16 @@
     "author": "Khanm",
     "homepage_url": "https://github.com/khanmcodes/XDEV",
     "icons": {
-      "48": "icon.png",
-      "128": "icon.png"
+      "48": "active.png",
+      "128": "active.png"
     },
     "action": {
       "default_popup": "popup.html",
-      "default_icon": "icon.png"
+      "default_icon": {
+        "16": "active.png",
+        "24": "active.png",
+        "32": "active.png"
+      }
     },
     "permissions": [
       "activeTab",

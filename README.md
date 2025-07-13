@@ -2,6 +2,7 @@
 
 A modern Web extension that provides detailed styling information for web elements with a beautiful, intuitive interface.
 
+![XDEV Inspector Preview](active.png)
 ![image](https://github.com/user-attachments/assets/45dc8986-cbf2-4fcd-8366-b22ca022f530)
 
 ## Features
@@ -84,7 +85,8 @@ xdev-extension/
 ├── popup.html       # Toggle interface
 ├── popup.js         # Popup functionality
 ├── content.js       # Main inspector logic
-└── icon.png         # Extension icon
+├── active.png       # Extension icon (active state)
+└── disabled.png     # Extension icon (disabled state)
 ```
 
 ## Contributing
